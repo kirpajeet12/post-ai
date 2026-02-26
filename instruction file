@@ -1,0 +1,608 @@
+# AI ORDERING BOT — COMPLETE INSTRUCTIONS
+### Everything you need to know, step by step
+
+---
+
+## WHAT WE BUILT
+
+A voice + terminal AI ordering system that works for **any restaurant, cafe, or business**.
+
+```
+Customer speaks / types
+        ↓
+   AI understands
+        ↓
+   Order is built
+        ↓
+   Sent to your POS
+        ↓
+   Kitchen gets ticket
+```
+
+It works in 3 modes:
+- **Terminal** — type orders in the command line
+- **Phone** — customer calls, AI answers (needs Twilio)
+- **Any POS** — plug in Square, custom API, or mock/print
+
+---
+
+## THE FILES — WHAT EACH ONE DOES
+
+```
+tim_ai/
+│
+├── setup_wizard.py   ← Run FIRST. Sets up everything.
+├── bot.py            ← Run every day. The main ordering bot.
+├── cli.py            ← Simple version, no setup needed.
+├── server.py         ← Phone call server (Twilio only).
+│
+├── core/
+│   ├── menu.py       ← Built-in Tim Hortons demo menu.
+│   ├── order.py      ← Order data structure (LineItem, Order).
+│   └── engine.py     ← Brain — handles state, upsells, confirmation.
+│
+├── parser/
+│   └── parser.py     ← Converts "medium double double" → structured data.
+│
+├── ai_engine/
+│   └── llm.py        ← Connects to OpenAI / Anthropic / Mock AI.
+│
+├── pos_adapters/
+│   ├── mock_pos.py   ← Prints order to terminal (for testing).
+│   ├── square_pos.py ← Sends order to Square POS.
+│   └── custom_pos.py ← Works with any REST API POS.
+│
+├── telephony/
+│   └── twilio_handler.py ← Handles phone calls via Twilio.
+│
+├── .env              ← Your config (API keys, POS, business name).
+├── .env.example      ← Template for .env.
+├── menu_custom.json  ← Your custom menu (created by setup wizard).
+└── requirements.txt  ← Python packages needed.
+```
+
+---
+
+## QUICK START — 3 COMMANDS
+
+```bash
+# 1. Install packages
+pip install -r requirements.txt
+
+# 2. Run setup (first time only)
+python setup_wizard.py
+
+# 3. Start the bot
+python bot.py
+```
+
+---
+
+## STEP 1 — INSTALL
+
+```bash
+cd /workspaces/post-ai/tim_ai
+pip install -r requirements.txt
+```
+
+What gets installed:
+- `openai` — OpenAI API
+- `anthropic` — Claude API
+- `twilio` — Phone calls
+- `fastapi` + `uvicorn` — Web server for Twilio
+- `python-dotenv` — Reads your .env file
+- `requests` — HTTP calls to POS
+
+---
+
+## STEP 2 — SETUP WIZARD (First Time)
+
+```bash
+python setup_wizard.py
+```
+
+The wizard asks you 5 things:
+
+**1. Your Business**
+```
+Business name: [Pizza Palace]
+Type: Restaurant / Cafe / Pizza Shop / Food Truck / Retail / Other
+Greeting: Hi! Welcome to Pizza Palace. What can I get for you?
+```
+
+**2. AI Provider**
+```
+1. OpenAI (GPT-4o)     → needs API key from platform.openai.com
+2. Anthropic (Claude)  → needs API key from console.anthropic.com
+3. Mock / No AI        → FREE, no key, rule-based matching
+```
+
+**3. POS System**
+```
+1. Terminal/mock       → prints order to screen (start here)
+2. Square POS          → needs Square developer account
+3. Custom REST API     → works with any POS that has an API
+4. Skip                → set up later
+```
+
+**4. Menu**
+```
+1. Type items now      → add items one by one in terminal
+2. Load from JSON      → point to your menu.json file
+3. Load from CSV       → point to your menu.csv file
+4. Tim Hortons demo    → use the built-in demo menu
+5. Skip                → edit menu_custom.json manually
+```
+
+**5. Phone / Twilio (Optional)**
+```
+1. No — terminal only
+2. Yes — enter Twilio credentials
+```
+
+Everything saves to `.env` automatically.
+
+---
+
+## STEP 3 — RUN THE BOT
+
+```bash
+python bot.py
+```
+
+### Commands you can type while ordering:
+
+| Command | What it does |
+|---------|-------------|
+| `menu` | Show full menu with prices |
+| `order` | Show current order so far |
+| `done` | Finalize and confirm order |
+| `cancel` | Start over |
+| `quit` | Exit the bot |
+
+### Example ordering session:
+
+```
+🤖 AI: Hi! Welcome to Tim Hortons. What can I get for you?
+
+👤 YOU: medium double double and a bacon breakfast sandwich
+
+🤖 AI: Got it — 1x Medium Coffee (double double), 1x Bacon Breakfast Sandwich.
+       Would you like to add a hash brown for $1.99?
+
+👤 YOU: no thanks
+
+🤖 AI: No problem. Anything else for you?
+
+👤 YOU: thats all
+
+🤖 AI: Just to confirm, you have:
+         - 1x Medium Coffee (double double)
+         - 1x Bacon Breakfast Sandwich
+       Say 'yes' to place it or 'no' to make changes.
+
+👤 YOU: yes
+
+🤖 AI: ✅ Order placed! #MOCK-A1B2C3. Thank you!
+```
+
+---
+
+## DIFFERENT WAYS TO RUN IT
+
+### Way 1 — No API Key (Free, Rule-Based)
+```bash
+python bot.py
+```
+- Uses pattern matching to understand orders
+- No internet needed
+- Works offline
+- Good for testing and demos
+
+### Way 2 — With OpenAI
+```bash
+# Add to .env:
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+
+python bot.py
+```
+- GPT-4o understands messy / natural speech
+- Handles complex requests better
+- Costs ~$0.01 per conversation
+
+### Way 3 — With Anthropic (Claude)
+```bash
+# Add to .env:
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+python bot.py
+```
+- Same as OpenAI option but uses Claude
+- Great at following instructions precisely
+
+### Way 4 — Old Simple Terminal (No Setup Needed)
+```bash
+python cli.py
+
+# With real AI:
+python cli.py --use-ai
+```
+- Simpler version
+- No setup wizard
+- Uses default Tim Hortons menu
+
+### Way 5 — Phone Calls (Twilio)
+```bash
+# 1. Start the server
+python server.py
+
+# 2. In a second terminal, expose it publicly
+ngrok http 8000
+
+# 3. Set your Twilio webhook to:
+#    https://your-ngrok-url.ngrok.io/voice
+
+# Now call your Twilio number — AI answers!
+```
+
+---
+
+## SETTING UP YOUR OWN MENU
+
+### Option A — Through Setup Wizard
+```bash
+python setup_wizard.py
+# Choose: "Update menu only"
+# Then: "Type items now"
+```
+
+### Option B — Edit the JSON File Directly
+
+Open `menu_custom.json` and add items like this:
+
+```json
+{
+  "margherita pizza": {
+    "category": "pizza",
+    "aliases": ["margherita", "cheese pizza", "margherita pizza"],
+    "sizes": ["small", "medium", "large"],
+    "modifiers": ["extra cheese", "no basil", "thin crust"],
+    "base_price": 12.99,
+    "pos_item_id": "PIZZA_MARG"
+  },
+  "garlic bread": {
+    "category": "sides",
+    "aliases": ["garlic bread", "bread"],
+    "sizes": null,
+    "modifiers": ["extra butter"],
+    "base_price": 4.99,
+    "pos_item_id": "SIDE_GB"
+  }
+}
+```
+
+**Key fields:**
+- `aliases` → words customers might say ("cheese pizza", "marg", "margherita")
+- `sizes` → set to `null` if item has no size options
+- `modifiers` → add-ons or changes customers can ask for
+- `base_price` → used by mock POS (real POS overrides this)
+- `pos_item_id` → your POS system's ID for this item
+
+### Option C — Load from CSV
+
+Create a file `my_menu.csv`:
+```
+name,category,price,sizes,modifiers
+latte,drinks,4.99,"small,medium,large","oat milk,almond milk,extra shot"
+croissant,food,3.49,,butter
+```
+
+Then run:
+```bash
+python setup_wizard.py
+# Choose: "Update menu only" → "Load from CSV"
+# Enter path: /workspaces/post-ai/tim_ai/my_menu.csv
+```
+
+---
+
+## CONNECTING A REAL POS
+
+### Square POS
+
+1. Go to **developer.squareup.com** → create app
+2. Get **Access Token** and **Location ID**
+3. Add to `.env`:
+```
+POS_ADAPTER=square
+SQUARE_ACCESS_TOKEN=EAAAxxxxxxxxxx
+SQUARE_LOCATION_ID=Lxxxxxxxxxx
+```
+4. In `core/menu.py`, add `square_variation_id` to each item matching your Square catalog
+
+### Custom POS (Any REST API)
+
+1. Add to `.env`:
+```
+POS_ADAPTER=custom
+CUSTOM_POS_BASE_URL=https://your-pos.com
+CUSTOM_POS_API_KEY=your-key
+CUSTOM_POS_ORDER_ENDPOINT=/api/orders
+```
+
+2. Open `pos_adapters/custom_pos.py`
+3. Edit `_transform_order()` to match what your POS expects:
+```python
+def _transform_order(self, order_dict: dict) -> dict:
+    # Reshape the data to match your POS API format
+    return {
+        "external_id": order_dict["id"],
+        "lines": [
+            {
+                "sku": item["name"],
+                "qty": item["qty"],
+                "notes": ", ".join(item["modifiers"])
+            }
+            for item in order_dict["items"]
+        ]
+    }
+```
+
+### Build Your Own POS Adapter
+
+Create `pos_adapters/my_pos.py`:
+```python
+from pos_adapters.base import BasePOS
+
+class MyPOS(BasePOS):
+    def send_order(self, order_dict: dict) -> dict:
+        # Your code to send order to your system
+        return {
+            "success": True,
+            "pos_order_id": "12345",
+            "message": "Order received"
+        }
+
+    def check_availability(self, item_name: str) -> bool:
+        return True  # Check your inventory here
+```
+
+Then in `.env`:
+```
+POS_ADAPTER=my_pos
+```
+
+---
+
+## CONNECTING PHONE CALLS (TWILIO)
+
+### Step 1 — Get Twilio Account
+1. Go to **twilio.com** → sign up free
+2. Get a phone number (~$1/month)
+3. Copy your **Account SID** and **Auth Token**
+
+### Step 2 — Add to .env
+```
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxx
+TWILIO_PHONE_NUMBER=+16041234567
+BASE_URL=https://your-server.com
+```
+
+### Step 3 — Run the Server
+```bash
+python server.py
+```
+
+### Step 4 — Expose to Internet (for testing)
+```bash
+# Install ngrok from ngrok.com then:
+ngrok http 8000
+# Copy the https URL it gives you
+```
+
+### Step 5 — Connect Twilio
+1. Go to twilio.com/console
+2. Click your phone number
+3. Under **Voice**, set webhook to:
+   `https://your-ngrok-url.ngrok.io/voice`
+4. Call your number — AI answers!
+
+---
+
+## DEPLOY TO A REAL SERVER
+
+### Railway (Easiest — Free Tier)
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login and deploy
+railway login
+railway init
+railway up
+```
+
+### Render (Also Free)
+1. Go to **render.com** → New Web Service
+2. Connect your GitHub repo
+3. Set start command: `python server.py`
+4. Add environment variables from your `.env`
+
+### DigitalOcean ($5/month)
+```bash
+# On the server:
+git clone https://github.com/yourname/tim-ai.git
+cd tim-ai/tim_ai
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your keys
+python server.py
+```
+
+---
+
+## RUNNING TESTS
+
+```bash
+cd /workspaces/post-ai/tim_ai
+python tests/test_parser.py
+```
+
+Should print: `17/17 passed`
+
+Tests check:
+- Single item parsing ("medium double double")
+- Multi-item parsing ("coffee and a sandwich")
+- Size defaults (no size given → medium)
+- Modifier detection ("no sauce", "biscuit")
+- Quantity words ("two hash browns")
+- Order engine (add, cancel, confirm)
+- Upsell logic
+
+---
+
+## COMMON ERRORS AND FIXES
+
+### "No config found. Run setup first."
+```bash
+python setup_wizard.py
+```
+
+### "Module not found"
+```bash
+pip install -r requirements.txt
+```
+
+### "Cannot find tim_ai_v3.zip"
+You don't need the zip. The code is already in your repo. Just run:
+```bash
+python bot.py
+```
+
+### "cd: workspaces: No such file or directory"
+Always use the full path:
+```bash
+cd /workspaces/post-ai/tim_ai
+```
+
+### AI only catches one item when ordering multiple
+Fixed in v2+. Make sure you have the latest `parser/parser.py`.
+Test with: `"medium coffee and a bacon sandwich"`
+
+### "no i want it small" not working
+Fixed in v3+. Make sure you have the latest `core/engine.py`.
+
+---
+
+## UPDATING YOUR CONFIG ANYTIME
+
+```bash
+python setup_wizard.py
+```
+
+Choose:
+- **Reconfigure everything** — full setup again
+- **Update menu only** — add/change items
+- **Update API keys only** — change AI provider or keys
+
+---
+
+## THE .ENV FILE — ALL OPTIONS
+
+```bash
+# Business
+BUSINESS_NAME=My Restaurant
+BUSINESS_TYPE=Restaurant
+GREETING_MSG=Hi! Welcome to My Restaurant. What can I get for you?
+
+# AI (pick one)
+AI_PROVIDER=mock           # mock | openai | anthropic
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# POS (pick one)
+POS_ADAPTER=mock           # mock | square | custom
+SQUARE_ACCESS_TOKEN=...
+SQUARE_LOCATION_ID=...
+CUSTOM_POS_BASE_URL=...
+CUSTOM_POS_API_KEY=...
+CUSTOM_POS_ORDER_ENDPOINT=/api/orders
+
+# Phone (optional)
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PHONE_NUMBER=+1...
+BASE_URL=https://your-server.com
+
+# Menu
+MENU_FILE=menu_custom.json  # or core/menu.py for demo
+```
+
+---
+
+## ROADMAP — WHAT TO BUILD NEXT
+
+| Feature | Effort | Value |
+|---------|--------|-------|
+| SMS confirmation after order | Low | High |
+| Admin dashboard (orders today) | Medium | High |
+| Customer profiles ("same as last time") | Medium | High |
+| ElevenLabs voice (more natural) | Low | Medium |
+| Multi-language support | Medium | High |
+| Inventory tracking | High | High |
+| Stripe payment over phone | High | Very High |
+
+---
+
+## SAVE VERSIONS IN GITHUB
+
+```bash
+# Tag current version
+git add .
+git commit -m "v1 - terminal bot working"
+git tag v1.0
+git push
+git push origin v1.0
+
+# After adding Twilio
+git tag v2.0
+git push origin v2.0
+```
+
+View all versions on GitHub under the **Releases** tab.
+
+---
+
+## SUMMARY — COMMANDS YOU'LL USE MOST
+
+```bash
+# Navigate to project
+cd /workspaces/post-ai/tim_ai
+
+# Install packages (once)
+pip install -r requirements.txt
+
+# First time setup
+python setup_wizard.py
+
+# Run the bot
+python bot.py
+
+# Run tests
+python tests/test_parser.py
+
+# Run phone server
+python server.py
+
+# Save to GitHub
+git add .
+git commit -m "your message"
+git push
+```
+
+---
+
+*Built with Python — works on any computer, any restaurant, any POS.*
