@@ -1,0 +1,19 @@
+
+Unzip File command 
+unzip tim_a1_v3.zip
+
+  
+1. Go to your project
+cd /workspaces/post-ai/tim_ai
+
+# 2. Install everything from requirements.txt
+pip install -r requirements.txt
+
+# 3. Copy the config file
+cp .env.example .env
+
+# 4. Run setup wizard
+python setup_wizard.py
+
+# 5. Run the bot
+python bot.py
